@@ -1,0 +1,20 @@
+base: config/eval/sudoku-medium.yaml
+train:
+  run_name: smoke
+  steps: 200
+  batch_size: 64
+  precision: fp32
+  warmup: 20
+  ckpt_every: 50
+  log_every: 5
+  eval_every: 100
+  eval_boards: 32
+  final_eval_boards: 64
+  eval_batch_size: 32
+  level_mask_prob: 0.5
+  e2e_weight: 1.0
+  guidance_anneal: cosine
+  guidance_start: 1.0
+  guidance_end: 0.1
+  e2e_mode: rollout
+  e2e_rollout_levels: 3

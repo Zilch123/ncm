@@ -708,6 +708,25 @@ class MultiscaleResidualVectorQuantizer(VectorQuantizerBaseClass):
             z_hat.add_(z_q_level)
             return z_hat, z_hat
 
+    # Differentiable counterparts of idx_to_z_q and the area-pooled NCM input; y holds per-position code distributions.
+    def soft_level_to_z(self, y, level_idx):
+        q = y @ self.embeddings[level_idx].weight
+        if level_idx != len(self.levels) - 1:
+            q = self._up_to_full(q, level_idx, self.levels[-1])
+        return self._apply_quant_resi(q, level_idx)
+
+    def soft_idx_to_z_hat(self, y):
+        z_hat, level_accum = 0, 0
+        for level_idx, level in enumerate(self.levels):
+            z_hat = z_hat + self.soft_level_to_z(y[:, level_accum:level_accum + level], level_idx)
+            level_accum += level
+        return z_hat
+
+    def z_hat_to_ncm_input(self, z_hat, level_idx):
+        return F.interpolate(
+            z_hat.transpose(-1, -2), size=(self.levels[level_idx],), mode="area"
+        ).transpose(-1, -2)
+
     @torch.no_grad()
     def idx_to_z_q(self, indices):
         z_hat = torch.zeros(indices.shape[0], self.levels[-1], self.embed_dim, device=indices.device)

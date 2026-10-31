@@ -517,6 +517,20 @@ class NextConceptTransformer(Transformer):
         x = self.transformer.ln_f(x)
         return self.lm_heads[hidx](x[:, P:, :])
 
+    # Differentiable single-level pass for training rollouts; matches the logits forward() gives that level.
+    def rollout_level_logits(self, x_level, z_prefix, level):
+        assert not self.use_post_upsample_conv, "rollout does not support post_upsample_conv"
+        offset = sum(self.levels[self._lvl_first:level])
+        L_cur = self.levels[level]
+        prefix_emb = self.transformer.wte(z_prefix)
+        x = self.transformer.wte(x_level)
+        if not self.use_rope:
+            prefix_emb = prefix_emb + self.wpe(self.wp_prefix)
+            x = x + self.wpe(self.wp_1L[:, offset:offset + L_cur])
+        if self.config.use_level_encoding:
+            x = x + self.transformer.wle(self.lvl_1L[:, offset:offset + L_cur])
+        return self._decode_level_logits(x, prefix_emb, level - 1, hidx=level - self._lvl_first)
+
     @torch.no_grad()
     def generate(self, idx, prefix_tokens, temperature=1.0, top_k=50, top_p=0.9,
                  use_kv_cache=False, cfg_scale=0.0, cfg_null_eos=50256):
