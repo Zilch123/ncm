@@ -2,6 +2,6 @@ base: config/eval/sudoku-medium.yaml
 train:
   run_name: full_D
   steps: 10000
-  batch_size: 256
-  grad_accum: 4
+  batch_size: 128
+  grad_accum: 8
   e2e_weight: 1.0

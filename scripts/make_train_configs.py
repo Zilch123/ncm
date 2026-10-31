@@ -1,6 +1,10 @@
 import os
 
-BASE = {"steps": 10000, "batch_size": 256}
+# A T4's 14.5 GB fits micro-batch 128, or 64 with rollout; 256 runs out of memory.
+PILOT = {"steps": 10000, "batch_size": 128, "grad_accum": 2}
+FULL = {"steps": 10000, "batch_size": 128, "grad_accum": 8}
+PILOT_ROLLOUT = {"batch_size": 64, "grad_accum": 4}
+FULL_ROLLOUT = {"batch_size": 64, "grad_accum": 16}
 SPARSE = {"level_mask_prob": 0.5}
 E2E = {"e2e_weight": 1.0}
 ANNEAL = {"guidance_anneal": "cosine", "guidance_start": 1.0, "guidance_end": 0.1}
@@ -25,6 +29,7 @@ def write(name, fields):
 
 os.makedirs(os.path.join("config", "train"), exist_ok=True)
 for run, extra in RUNS.items():
-    write(f"pilot_{run}", {**BASE, **extra})
-    write(f"full_{run}", {**BASE, "grad_accum": 4, **extra})
+    rollout = "e2e_mode" in extra
+    write(f"pilot_{run}", {**PILOT, **extra, **(PILOT_ROLLOUT if rollout else {})})
+    write(f"full_{run}", {**FULL, **extra, **(FULL_ROLLOUT if rollout else {})})
 write("smoke", SMOKE)
