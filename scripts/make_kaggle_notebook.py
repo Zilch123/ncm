@@ -112,11 +112,13 @@ assert STATUS == 0, "a run failed; see the logs"
 ]
 
 
-def build(mode="pilot"):
+def build(mode="pilot", runs=None, steps=0):
     cells = []
     for kind, src in CELLS:
         if src.startswith('MODE = "pilot"'):
-            src = src.replace('MODE = "pilot"', f'MODE = "{mode}"')
+            src = src.replace('MODE = "pilot"', f'MODE = "{mode}"').replace("FIXED_STEPS = 0", f"FIXED_STEPS = {steps}")
+            if runs:
+                src = src.replace('["pilot_A", "pilot_B"]', json.dumps(runs))
         cell = {"cell_type": kind, "metadata": {}, "source": src.splitlines(True)}
         if kind == "code":
             cell.update(execution_count=None, outputs=[])
@@ -128,6 +130,8 @@ def build(mode="pilot"):
 if __name__ == "__main__":
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join("notebooks", "kaggle_run.ipynb")
     mode = sys.argv[2] if len(sys.argv) > 2 else "pilot"
+    runs = sys.argv[3].split(",") if len(sys.argv) > 3 else None
+    steps = int(sys.argv[4]) if len(sys.argv) > 4 else 0
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", newline="\n") as f:
-        json.dump(build(mode), f, indent=1)
+        json.dump(build(mode, runs, steps), f, indent=1)

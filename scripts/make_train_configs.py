@@ -15,6 +15,12 @@ RUNS = {
     "C": {**SPARSE, **E2E},
     "D": {**E2E},
     "E": {**SPARSE, **E2E, **ANNEAL, **ROLLOUT},
+    # One change from B each; J combines the rollout, masking and floor changes.
+    "F": {**SPARSE, **E2E, **ANNEAL, "level_mask_prob": 0.2},
+    "G": {**SPARSE, **E2E, **ANNEAL, "guidance_end": 0.5},
+    "H": {**SPARSE, **E2E, **ANNEAL, "level_mask_prob": [0.0] * 6 + [0.5] * 6},
+    "I": {**SPARSE, **E2E, **ANNEAL, "warm_start_frac": 0.25},
+    "J": {**SPARSE, **E2E, **ANNEAL, **ROLLOUT, "level_mask_prob": 0.2, "guidance_end": 0.5},
 }
 SMOKE = {"steps": 200, "batch_size": 64, "precision": "fp32", "warmup": 20, "ckpt_every": 50, "log_every": 5,
          "eval_every": 100, "eval_boards": 32, "final_eval_boards": 64, "eval_batch_size": 32, **RUNS["E"]}

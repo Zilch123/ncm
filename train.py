@@ -47,6 +47,8 @@ DEFAULTS = {
     "guidance_start": 1.0,
     "guidance_end": 0.1,
     "anneal_steps": 0,  # 0 means train.steps
+    # warm start: for this fraction of steps, full supervision with no masking and no token loss
+    "warm_start_frac": 0.0,
     # runtime
     "precision": "fp16",  # bf16 | fp16 | fp32
     "compile": False,
@@ -101,7 +103,8 @@ def lr_at(step, t):
 def guidance_at(step, t):
     if t.guidance_anneal == "none":
         return float(t.guidance_start)
-    x = min(step / max(t.anneal_steps or t.steps, 1), 1.0)
+    warm = int(t.warm_start_frac * t.steps)
+    x = min(max(step - warm, 0) / max((t.anneal_steps or t.steps) - warm, 1), 1.0)
     if t.guidance_anneal == "cosine":
         x = 0.5 * (1 - math.cos(math.pi * x))
     elif t.guidance_anneal != "linear":
@@ -197,12 +200,13 @@ class Trainer:
             logits = logits.float()
             ce_pos = F.cross_entropy(logits.reshape(-1, logits.shape[-1]), ids.reshape(-1), reduction="none").view(B, -1)
             ce_lvl = torch.stack([ce_pos[:, a:a + l].sum(1) for a, l in zip(self.offsets, self.levels)], dim=1)
-            mask = self.sample_mask(B)
+            warm = step < int(t.warm_start_frac * t.steps)
+            mask = torch.ones_like(ce_lvl) if warm else self.sample_mask(B)
             guidance = guidance_at(step, t)
             supervised = (mask * self.w * ce_lvl).sum(1).mean()
             total = guidance * supervised
             tok = None
-            if t.e2e_weight > 0:
+            if t.e2e_weight > 0 and not warm:
                 if t.e2e_mode == "teacher":
                     tok = self.token_loss(self.vq.soft_idx_to_z_hat(self.codes_from_logits(logits)), solution)
                 elif t.e2e_mode == "rollout":

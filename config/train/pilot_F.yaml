@@ -1,0 +1,11 @@
+base: config/eval/sudoku-medium.yaml
+train:
+  run_name: pilot_F
+  steps: 10000
+  batch_size: 128
+  grad_accum: 2
+  level_mask_prob: 0.2
+  e2e_weight: 1.0
+  guidance_anneal: cosine
+  guidance_start: 1.0
+  guidance_end: 0.1

@@ -104,6 +104,25 @@ def test_baseline_loss_matches_eq10(pool):
     assert "token_ce" not in m and m["mask_rate"] == 0.0
 
 
+def test_warm_start_and_per_level_mask(pool):
+    cfg = load_config("config/train/pilot_I.yaml", TINY + [f"train.train_pool={pool}", "train.steps=100"])
+    v, n = build(cfg, torch.device("cpu"))
+    tr = Trainer(cfg, v, n, torch.device("cpu"))
+    p, s = SudokuBoards(pool, ["easy"]).sample(4, np.random.default_rng(0))
+    p, s = torch.tensor(p), torch.tensor(s)
+    with torch.no_grad():
+        _, m = tr.loss(p, s, 24)
+        assert m["mask_rate"] == 0.0 and m["guidance"] == 1.0 and "token_ce" not in m
+        _, m = tr.loss(p, s, 25)
+        assert m["guidance"] == 1.0 and "token_ce" in m
+        _, m = tr.loss(p, s, 99)
+        assert m["mask_rate"] > 0.0 and m["guidance"] < 0.11
+    cfg = load_config("config/train/pilot_H.yaml", TINY + [f"train.train_pool={pool}"])
+    v, n = build(cfg, torch.device("cpu"))
+    keep = Trainer(cfg, v, n, torch.device("cpu")).keep.tolist()
+    assert keep == [1.0] * 6 + [0.5] * 6, keep
+
+
 def _train(out, pool, run, steps=10):
     cmd = [sys.executable, "train.py", "--config", "config/train/smoke.yaml", *TINY, f"train.train_pool={pool}",
            f"train.output_root={out}", f"train.run_name={run}", f"train.steps={steps}", "train.batch_size=8",
@@ -151,6 +170,7 @@ if __name__ == "__main__":
             ("soft path and rollout", test_soft_path_and_rollout_match_released_code),
             ("e2e gradients", lambda: test_e2e_grads_reach_generator_only(pool)),
             ("baseline loss", lambda: test_baseline_loss_matches_eq10(pool)),
+            ("warm start and per-level mask", lambda: test_warm_start_and_per_level_mask(pool)),
             ("exact resume", lambda: test_resume_is_exact(pool, tmp)),
             ("max_hours", lambda: test_max_hours_exits_cleanly(pool, tmp)),
         ]:
